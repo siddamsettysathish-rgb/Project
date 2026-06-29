@@ -45,24 +45,47 @@ pipeline {
     }
 }
 
-    stage('Build Docker Image') {
-      when { expression { env.SKIP_CI != 'true' } }
-      steps {
-        sh 'docker build -t ${FULL_IMAGE} .'
-      }
-    }
+   stage('Build Docker Image') {
+  when { expression { env.SKIP_CI != 'true' } }
+  steps {
+    sh '''
+      echo "Building Docker image: $FULL_IMAGE"
+      docker build -t "$FULL_IMAGE" .
+    '''
+  }
+}
 
-    stage('Push Docker Image') {
-      when { expression { env.SKIP_CI != 'true' } }
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh '''
-            echo "$DOCKER_PASS" | docker login "$DOCKER_REGISTRY" -u "$DOCKER_USER" --password-stdin
-            docker push "$FULL_IMAGE"
-          '''
-        }
-      }
+stage('Trivy Image Scan') {
+  when { expression { env.SKIP_CI != 'true' } }
+  steps {
+    sh '''
+      echo "Scanning Docker image with Trivy: $FULL_IMAGE"
+      docker run --rm \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v trivy-cache:/root/.cache/ \
+        aquasec/trivy:latest image \
+        --severity HIGH,CRITICAL \
+        --exit-code 0 \
+        "$FULL_IMAGE"
+    '''
+  }
+}
+
+stage('Push Docker Image') {
+  when { expression { env.SKIP_CI != 'true' } }
+  steps {
+    withCredentials([usernamePassword(
+      credentialsId: 'dockerhub-creds',
+      usernameVariable: 'DOCKER_USER',
+      passwordVariable: 'DOCKER_PASS'
+    )]) {
+      sh '''
+        echo "$DOCKER_PASS" | docker login "$DOCKER_REGISTRY" -u "$DOCKER_USER" --password-stdin
+        docker push "$FULL_IMAGE"
+      '''
     }
+  }
+}
 
     stage('Update Kubernetes Manifest') {
       when { expression { env.SKIP_CI != 'true' } }
