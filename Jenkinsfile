@@ -34,13 +34,16 @@ pipeline {
     }
 
     stage('SonarQube Scan') {
-      when { expression { env.SKIP_CI != 'true' } }
-      steps {
-        withSonarQubeEnv('sonarqube-server') {
-          sh 'sonar-scanner'
+    steps {
+        script {
+            def scannerHome = tool 'SonarScanner'
+
+            withSonarQubeEnv('sonarqube-server') {
+                sh "${scannerHome}/bin/sonar-scanner"
+            }
         }
-      }
     }
+}
 
     stage('Build Docker Image') {
       when { expression { env.SKIP_CI != 'true' } }
