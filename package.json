@@ -1,0 +1,10 @@
+{
+  "name": "k8s-cicd-demo-site",
+  "version": "1.0.0",
+  "description": "Sample static website for GitHub, Jenkins, SonarQube, Docker, Kubernetes and Argo CD CI/CD demo.",
+  "scripts": {
+    "lint": "node scripts/lint.js",
+    "test": "node scripts/test.js"
+  },
+  "devDependencies": {}
+}

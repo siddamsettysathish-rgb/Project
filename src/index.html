@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kubernetes CI/CD Demo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <p class="eyebrow">GitHub → Jenkins → Docker → Argo CD → Kubernetes</p>
+        <h1>Sample Website Deployed on Kubernetes</h1>
+        <p class="subtitle">
+          This demo shows an automated CI/CD workflow. When code is pushed to GitHub,
+          Jenkins scans the code, builds a Docker image, pushes it to a registry, updates
+          the Kubernetes manifest, and Argo CD deploys it to the cluster.
+        </p>
+        <div class="actions">
+          <a href="#pipeline" class="button">View pipeline</a>
+          <a href="#status" class="button secondary">Deployment status</a>
+        </div>
+      </section>
+
+      <section id="pipeline" class="cards">
+        <article class="card">
+          <span class="step">1</span>
+          <h2>GitHub</h2>
+          <p>Developer commits website changes. A webhook triggers the Jenkins pipeline.</p>
+        </article>
+        <article class="card">
+          <span class="step">2</span>
+          <h2>SonarQube</h2>
+          <p>Jenkins runs code quality checks before building the application image.</p>
+        </article>
+        <article class="card">
+          <span class="step">3</span>
+          <h2>Docker</h2>
+          <p>The static website is packaged into an Nginx Docker image and pushed to Docker Hub.</p>
+        </article>
+        <article class="card">
+          <span class="step">4</span>
+          <h2>Argo CD</h2>
+          <p>Argo CD detects the updated Kubernetes manifest and syncs the cluster automatically.</p>
+        </article>
+      </section>
+
+      <section id="status" class="status-panel">
+        <h2>Live demo message</h2>
+        <p id="build-message">Loading deployment information...</p>
+        <p class="hint">Change this text, push to GitHub, and watch the pipeline deploy the new version.</p>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

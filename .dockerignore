@@ -1,0 +1,9 @@
+.git
+.gitignore
+Jenkinsfile
+README.md
+docs
+k8s
+argocd
+node_modules
+npm-debug.log
