@@ -1,26 +1,42 @@
 pipeline {
   agent any
+
   environment {
-    APP_NAME = 'k8s-cicd-demo-site'
     DOCKER_REGISTRY = 'docker.io'
     DOCKER_REPO = 'sathishsiddamsetty/k8s-cicd-demo-site'
     GITOPS_BRANCH = 'main'
     K8S_DEPLOYMENT_FILE = 'k8s/deployment.yaml'
     SKIP_CI = 'false'
   }
+
   stages {
     stage('Checkout') {
       steps {
         checkout scm
         script {
-          def latestMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+          def latestMessage = sh(
+            script: 'git log -1 --pretty=%B',
+            returnStdout: true
+          ).trim()
+
           env.SKIP_CI = latestMessage.contains('[skip ci]') ? 'true' : 'false'
-          env.SHORT_COMMIT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+
+          env.SHORT_COMMIT = sh(
+            script: 'git rev-parse --short HEAD',
+            returnStdout: true
+          ).trim()
+
           env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.SHORT_COMMIT}"
           env.FULL_IMAGE = "${env.DOCKER_REGISTRY}/${env.DOCKER_REPO}:${env.IMAGE_TAG}"
+          env.LATEST_IMAGE = "${env.DOCKER_REGISTRY}/${env.DOCKER_REPO}:latest"
+
+          echo "Build image: ${env.FULL_IMAGE}"
+          echo "Latest image: ${env.LATEST_IMAGE}"
+          echo "SKIP_CI: ${env.SKIP_CI}"
         }
       }
     }
+
     stage('Install and Test') {
       when { expression { env.SKIP_CI != 'true' } }
       steps {
@@ -29,7 +45,9 @@ pipeline {
         sh 'npm test'
       }
     }
+
     stage('SonarQube Scan') {
+      when { expression { env.SKIP_CI != 'true' } }
       steps {
         script {
           def scannerHome = tool 'SonarScanner'
@@ -39,15 +57,18 @@ pipeline {
         }
       }
     }
+
     stage('Build Docker Image') {
       when { expression { env.SKIP_CI != 'true' } }
       steps {
         sh '''
           echo "Building Docker image: $FULL_IMAGE"
           docker build -t "$FULL_IMAGE" .
+          docker tag "$FULL_IMAGE" "$LATEST_IMAGE"
         '''
       }
     }
+
     stage('Trivy Image Scan') {
       when { expression { env.SKIP_CI != 'true' } }
       steps {
@@ -63,6 +84,7 @@ pipeline {
         '''
       }
     }
+
     stage('Push Docker Image') {
       when { expression { env.SKIP_CI != 'true' } }
       steps {
@@ -74,18 +96,15 @@ pipeline {
           sh '''
             echo "$DOCKER_PASS" | docker login "$DOCKER_REGISTRY" -u "$DOCKER_USER" --password-stdin
             docker push "$FULL_IMAGE"
+            docker push "$LATEST_IMAGE"
           '''
         }
       }
     }
+
     stage('Update Kubernetes Manifest') {
       when { expression { env.SKIP_CI != 'true' } }
       steps {
-        // NOTE: Github_Token is assumed to be a "Username with password" credential
-        // (this matches how `checkout scm` consumes it). If Github_Token is stored
-        // as "Secret text" instead, switch to:
-        //   withCredentials([string(credentialsId: 'Github_Token', variable: 'GITHUB_TOKEN')])
-        // and remove the GITHUB_USER references below.
         withCredentials([usernamePassword(
           credentialsId: 'Github_Token',
           usernameVariable: 'GITHUB_USER',
@@ -94,9 +113,14 @@ pipeline {
           sh '''
             git config user.email "jenkins@demo.local"
             git config user.name "jenkins-cicd"
-            sed -i "s|image: .*k8s-cicd-demo-site:.*|image: ${FULL_IMAGE}|g" "$K8S_DEPLOYMENT_FILE"
+
+            echo "Updating Kubernetes manifest with image: $FULL_IMAGE"
+
+            sed -i "s|image: .*|image: ${FULL_IMAGE}|g" "$K8S_DEPLOYMENT_FILE"
+
             git add "$K8S_DEPLOYMENT_FILE"
             git commit -m "ci: update image to ${IMAGE_TAG} [skip ci]" || echo "No manifest changes to commit"
+
             git remote set-url origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/siddamsettysathish-rgb/Project.git"
             git push origin HEAD:${GITOPS_BRANCH}
           '''
@@ -104,19 +128,25 @@ pipeline {
       }
     }
   }
+
   post {
     success {
       script {
         if (env.SKIP_CI == 'true') {
           echo 'Skipped Jenkins-generated [skip ci] manifest commit.'
         } else {
-          echo "Pipeline completed. Argo CD will deploy ${FULL_IMAGE} to Kubernetes."
+          echo "Pipeline completed successfully."
+          echo "Docker image pushed: ${env.FULL_IMAGE}"
+          echo "Latest image pushed: ${env.LATEST_IMAGE}"
+          echo "Argo CD will deploy the updated Kubernetes manifest."
         }
       }
     }
+
     failure {
       echo 'Pipeline failed. Check Jenkins stage logs.'
     }
+
     always {
       sh 'docker logout ${DOCKER_REGISTRY} || true'
     }
