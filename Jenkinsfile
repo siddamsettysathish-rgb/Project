@@ -4,7 +4,7 @@ pipeline {
   environment {
     APP_NAME = 'k8s-cicd-demo-site'
     DOCKER_REGISTRY = 'docker.io'
-    DOCKER_REPO = 'siddamsettysathish/k8s-cicd-demo-site'
+    DOCKER_REPO = 'sathishsiddamsetty/k8s-cicd-demo-site'
     GITOPS_BRANCH = 'main'
     K8S_DEPLOYMENT_FILE = 'k8s/deployment.yaml'
     SKIP_CI = 'false'
