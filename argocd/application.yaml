@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USER/k8s-cicd-demo-site.git
+    repoURL: https://github.com/siddamsettysathish-rgb/Project.git
     targetRevision: main
     path: k8s
   destination:
