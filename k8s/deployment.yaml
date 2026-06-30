@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: website
-          image: docker.io/sathishsiddamsetty/k8s-cicd-demo-site:14-39b09e6
+          image: docker.io/sathishsiddamsetty/k8s-cicd-demo-site:15-5f27b04
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
