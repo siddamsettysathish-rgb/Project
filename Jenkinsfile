@@ -1,6 +1,5 @@
 pipeline {
   agent any
-
   environment {
     APP_NAME = 'k8s-cicd-demo-site'
     DOCKER_REGISTRY = 'docker.io'
@@ -9,7 +8,6 @@ pipeline {
     K8S_DEPLOYMENT_FILE = 'k8s/deployment.yaml'
     SKIP_CI = 'false'
   }
-
   stages {
     stage('Checkout') {
       steps {
@@ -23,7 +21,6 @@ pipeline {
         }
       }
     }
-
     stage('Install and Test') {
       when { expression { env.SKIP_CI != 'true' } }
       steps {
@@ -32,82 +29,81 @@ pipeline {
         sh 'npm test'
       }
     }
-
     stage('SonarQube Scan') {
-    steps {
+      steps {
         script {
-            def scannerHome = tool 'SonarScanner'
-
-            withSonarQubeEnv('sonarqube-server') {
-                sh "${scannerHome}/bin/sonar-scanner"
-            }
+          def scannerHome = tool 'SonarScanner'
+          withSonarQubeEnv('sonarqube-server') {
+            sh "${scannerHome}/bin/sonar-scanner"
+          }
         }
+      }
     }
-}
-
-   stage('Build Docker Image') {
-  when { expression { env.SKIP_CI != 'true' } }
-  steps {
-    sh '''
-      echo "Building Docker image: $FULL_IMAGE"
-      docker build -t "$FULL_IMAGE" .
-    '''
-  }
-}
-
-stage('Trivy Image Scan') {
-  when { expression { env.SKIP_CI != 'true' } }
-  steps {
-    sh '''
-      echo "Scanning Docker image with Trivy: $FULL_IMAGE"
-      docker run --rm \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        -v trivy-cache:/root/.cache/ \
-        aquasec/trivy:latest image \
-        --severity HIGH,CRITICAL \
-        --exit-code 0 \
-        "$FULL_IMAGE"
-    '''
-  }
-}
-
-stage('Push Docker Image') {
-  when { expression { env.SKIP_CI != 'true' } }
-  steps {
-    withCredentials([usernamePassword(
-      credentialsId: 'dockerhub-creds',
-      usernameVariable: 'DOCKER_USER',
-      passwordVariable: 'DOCKER_PASS'
-    )]) {
-      sh '''
-        echo "$DOCKER_PASS" | docker login "$DOCKER_REGISTRY" -u "$DOCKER_USER" --password-stdin
-        docker push "$FULL_IMAGE"
-      '''
+    stage('Build Docker Image') {
+      when { expression { env.SKIP_CI != 'true' } }
+      steps {
+        sh '''
+          echo "Building Docker image: $FULL_IMAGE"
+          docker build -t "$FULL_IMAGE" .
+        '''
+      }
     }
-  }
-}
-
+    stage('Trivy Image Scan') {
+      when { expression { env.SKIP_CI != 'true' } }
+      steps {
+        sh '''
+          echo "Scanning Docker image with Trivy: $FULL_IMAGE"
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v trivy-cache:/root/.cache/ \
+            aquasec/trivy:latest image \
+            --severity HIGH,CRITICAL \
+            --exit-code 0 \
+            "$FULL_IMAGE"
+        '''
+      }
+    }
+    stage('Push Docker Image') {
+      when { expression { env.SKIP_CI != 'true' } }
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'dockerhub-creds',
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
+        )]) {
+          sh '''
+            echo "$DOCKER_PASS" | docker login "$DOCKER_REGISTRY" -u "$DOCKER_USER" --password-stdin
+            docker push "$FULL_IMAGE"
+          '''
+        }
+      }
+    }
     stage('Update Kubernetes Manifest') {
       when { expression { env.SKIP_CI != 'true' } }
       steps {
-        withCredentials([string(credentialsId: 'Github-token', variable: 'GITHUB_TOKEN')]) {
+        // NOTE: Github_Token is assumed to be a "Username with password" credential
+        // (this matches how `checkout scm` consumes it). If Github_Token is stored
+        // as "Secret text" instead, switch to:
+        //   withCredentials([string(credentialsId: 'Github_Token', variable: 'GITHUB_TOKEN')])
+        // and remove the GITHUB_USER references below.
+        withCredentials([usernamePassword(
+          credentialsId: 'Github_Token',
+          usernameVariable: 'GITHUB_USER',
+          passwordVariable: 'GITHUB_TOKEN'
+        )]) {
           sh '''
             git config user.email "jenkins@demo.local"
             git config user.name "jenkins-cicd"
-
             sed -i "s|image: .*k8s-cicd-demo-site:.*|image: ${FULL_IMAGE}|g" "$K8S_DEPLOYMENT_FILE"
-
             git add "$K8S_DEPLOYMENT_FILE"
             git commit -m "ci: update image to ${IMAGE_TAG} [skip ci]" || echo "No manifest changes to commit"
-
-            git remote set-url origin "https://${GITHUB_TOKEN}@github.com/YOUR_GITHUB_USER/k8s-cicd-demo-site.git"
+            git remote set-url origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/siddamsettysathish-rgb/Project.git"
             git push origin HEAD:${GITOPS_BRANCH}
           '''
         }
       }
     }
   }
-
   post {
     success {
       script {
