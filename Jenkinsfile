@@ -90,7 +90,7 @@ stage('Push Docker Image') {
     stage('Update Kubernetes Manifest') {
       when { expression { env.SKIP_CI != 'true' } }
       steps {
-        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+        withCredentials([string(credentialsId: 'Github-token', variable: 'GITHUB_TOKEN')]) {
           sh '''
             git config user.email "jenkins@demo.local"
             git config user.name "jenkins-cicd"
